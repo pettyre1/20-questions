@@ -1,55 +1,53 @@
+# 20 Questions AI: Information Theory & LLM Property Generation
 
-# Credit Card Fraud Detection
+## Overview
+This project is an advanced, automated "20 Questions" game simulator. It leverages Information Theory (a hybrid Entropy and Gini impurity algorithm) to dynamically select the most optimal questions to narrow down a target noun from a vast knowledge base. Additionally, it features an optional AI-driven data pipeline utilizing Microsoft's `Phi-3-mini-4k-instruct` Large Language Model to automatically evaluate and map complex properties to everyday nouns.
 
-## Project Overview
-This project implements a machine learning system to detect fraudulent credit card transactions. The dataset (`creditcard.csv`) used is highly imbalanced, with frauds accounting for only ~0.172% of all transactions. The primary objective is to minimize false negatives (maximizing recall) while keeping false positives low (maintaining precision), ensuring that genuine customers are not inconvenienced while actively catching fraudulent activity.
-
-## System Flow Diagram
+## System Architecture
 ```mermaid
 graph TD
-    A[Load Dataset] --> B[Preprocess: Scale Time & Amount]
-    B --> C[Train/Test Split 80/20]
-    C --> D{Data Augmentation/Sampling}
-    D -->|Original| E[Train Baselines: LR, NB, RF]
-    D -->|SMOTE| F[Train with Oversampling]
-    D -->|Undersampling| G[Train with Undersampling]
-    E --> H[Evaluate Models]
-    F --> H
-    G --> H
-    H --> I[XGBoost Tuning & Weighting]
-    I --> J[Threshold Tuning]
-    J --> K[Best Model: XGBoost Threshold 0.4]
+    A[Data Files: Nouns & Properties] --> B{Property Map Builder}
+    C[Phi-3 LLM Generator] -->|If Enabled & Run| B
+    D[Deterministic Hash Generator] -->|Fallback| B
+    B --> E[Game Simulator]
+    E --> F[Hybrid Entropy-Gini Algorithm]
+    F -->|Selects Best Question| E
+    E -->|Filters Candidates| G[Target Guessed]
 ```
 
 ## Technologies Used
-*   **Python:** Primary programming language.
-*   **Pandas & NumPy:** Data manipulation and numerical operations.
-*   **Scikit-Learn:** Machine learning models (Logistic Regression, Naive Bayes, Random Forest), preprocessing (StandardScaler), and evaluation metrics.
-*   **Imbalanced-Learn (imblearn):** Handling class imbalance using SMOTE and Random Undersampling.
-*   **XGBoost:** High-performance gradient boosting classifier used for the final model.
-*   **Matplotlib & Seaborn:** Data visualization and plotting evaluation curves (AUPRC, ROC, etc.).
+* **Python**: Core programming language.
+* **Hugging Face `transformers`**: For integrating and running the Large Language Model.
+* **Microsoft `Phi-3-mini-4k-instruct`**: The LLM responsible for generating subjective property mappings.
+* **Information Theory Algorithms**: Shannon Entropy and Gini Impurity calculations for the decision engine.
+* **Pandas**: Used for formatting and displaying benchmark test results.
 
-## Testing Flow & Methodology
-To find the optimal model, a comprehensive testing flow was utilized:
-1.  **Baseline Evaluation:** We started by training Logistic Regression, Naive Bayes, and Random Forest classifiers on the raw imbalanced data.
-2.  **Data Augmentation (SMOTE):** We applied the Synthetic Minority Over-sampling Technique (SMOTE) to synthetically balance the training data, observing improvements in recall but drops in precision for some models.
-3.  **Undersampling:** We experimented with undersampling the majority class, which resulted in high recall but unacceptably low precision.
-4.  **Advanced Strategies:** We tested threshold tuning, cost-sensitive learning, and hybrid sampling (SMOTE+ENN) to balance the precision-recall tradeoff.
+## The Problem
+Building a robust and intelligent "20 Questions" agent presents two major challenges:
+1. **Knowledge Base Scalability**: Mapping thousands of nouns to hundreds of subjective or nuanced boolean properties (e.g., "Is it a carnivore?", "Is it easily breakable?") is highly labor-intensive to construct by hand.
+2. **Optimal Questioning Strategy**: The system requires a mathematical approach to dynamically select the next best question, maximizing information gain and eliminating the most incorrect candidates per turn, even with unbalanced or sparse data.
 
-## The Best Model: XGBoost
-Our best-performing model was **XGBoost**. Because tree-based ensemble models naturally handle imbalanced data better, we bypassed SMOTE and trained XGBoost on the original data.
-*   **Class Weighting:** We used the `scale_pos_weight` parameter to penalize mistakes on the minority fraud class heavily.
-*   **Hyperparameter Tuning:** We used `RandomizedSearchCV` to fine-tune the model's parameters (max depth, learning rate, estimators, etc.).
-*   **Threshold Tuning:** By lowering the prediction threshold to 0.4, we achieved our optimal result: **86% Recall and 86% Precision**. This provided the best balance, minimizing both missed frauds and false alarms.
+## The Solution
+To address these challenges, this project implements a two-fold solution:
+* **LLM-Powered Data Generation**: Integrates the `Phi-3-mini-4k-instruct` model via Hugging Face `transformers`. The LLM evaluates `(noun, property)` pairs on a 1-10 scale, thresholding the results to automatically generate a comprehensive boolean matrix of features.
+* **Hybrid Entropy-Gini Decision Algorithm**: Evaluates the remaining pool of candidates at each step. By calculating a weighted score combining Shannon Entropy (60%) and Gini Impurity (40%), the system reliably identifies and asks the most mathematically discriminative questions, achieving high accuracy in minimal turns (averaging ~10 questions per game).
 
-## Simplified Model (Feature Importance)
-In real-world production environments, inference speed is critical. We extracted the feature importances from our tuned XGBoost model and trained simplified versions using only the Top 5 and Top 10 features.
-*   The **Top 10 Features Model** performed remarkably well, retaining 84% Recall and 76% Precision.
-*   This approach demonstrates how to reduce computational overhead and create simple fallback rules while still catching a vast majority of fraud.
+## Repository Data
+The raw datasets required to run this notebook are located in the `data/` directory of this repository:
+* `property_universe.txt` - The list of queryable properties.
+* `noun_universe.txt` - The list of target nouns.
+* `all_per_student.json` - Fallback/historical state data.
 
-## How to Use in Google Colab
-To run this notebook yourself:
-1.  Download this repository.
-2.  Open [Google Colab](https://colab.research.google.com/) and upload the `Credit_Card_Fraud.ipynb` notebook.
-3.  Upload the `creditcard.csv` dataset (located in the `data/` directory of this repository) to the root `/content/` directory of your Colab environment.
-4.  Run the cells sequentially to see the data processing, model training, and evaluation metrics.
+## How to Run in Google Colab
+
+To interact with this notebook yourself, follow these steps:
+
+1. **Open in Colab**: Import this `.ipynb` notebook into [Google Colab](https://colab.research.google.com/).
+2. **Upload Data Files**: 
+   * Download the files from the `data/` directory in this GitHub repository.
+   * In Colab, open the file explorer (folder icon on the left sidebar) and upload `property_universe.txt`, `noun_universe.txt`, and `all_per_student.json` directly to the default `/content/` directory.
+3. **Hardware Acceleration (Important for LLM Generation)**: 
+   * If you wish to use the Phi-3 generator, navigate to `Runtime > Change runtime type` and select **T4 GPU** (or better).
+   * In the Configuration cell of the notebook, ensure `USE_PHI3_GENERATOR = True`.
+4. **Execute**: Run the notebook sequentially (`Runtime > Run all`).
+5. **Interactive Play**: Scroll to the final cells to view the automated benchmark tests, or interact with the manual execution block to play a live game against the algorithm!
